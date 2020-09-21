@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync"
 
 	ali_vpc "github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 	"github.com/lic17/ali-cloud-tools/pkg/client"
@@ -12,36 +13,51 @@ import (
 func main() {
 	client := client.NewClient("cn-beijing")
 
-	setTags(client)
+	setEipsTags(client)
 }
 
-func setTags(client *client.Client) {
+func setEipsTags(client *client.Client) {
+
+	var wg sync.WaitGroup
+
 	e := ecs.NewEcs(client)
 	v := vpc.NewVpc(client)
 
 	eips := v.GetAllUseEIP()
 	fmt.Println("len eips:", len(eips))
-	for _, d := range eips {
-		instanceId := d.InstanceId
-		eipId := d.AllocationId
-		fmt.Println("instance id:", instanceId)
-		fmt.Println("eip id:", eipId)
+	for _, eip := range eips {
 
-		tags := e.GetEcsTags(instanceId)
-		var addTags []ali_vpc.TagResourcesTag
+		wg.Add(1)
 
-		for _, t := range tags.Tag {
+		go func(eip ali_vpc.EipAddress) {
 
-			var tag ali_vpc.TagResourcesTag
+			defer wg.Done()
 
-			tag.Value = t.TagValue
-			tag.Key = t.TagKey
+			instanceId := eip.InstanceId
+			eipId := eip.AllocationId
 
-			addTags = append(addTags, tag)
-		}
+			tags := e.GetEcsTags(instanceId)
+			var addTags []ali_vpc.TagResourcesTag
 
-		if len(addTags) > 0 {
-			v.SetEIPTags(eipId, addTags)
-		}
+			for _, t := range tags.Tag {
+
+				var tag ali_vpc.TagResourcesTag
+
+				tag.Value = t.TagValue
+				tag.Key = t.TagKey
+
+				addTags = append(addTags, tag)
+			}
+
+			fmt.Println("instance id: ", instanceId, "eip id: ", eipId, "get tags: ", eip.Tags, "add tags: ", addTags)
+
+			if len(addTags) > 0 {
+				v.SetEIPTags(eipId, addTags)
+			}
+
+		}(eip)
 	}
+
+	wg.Wait()
+
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync"
 
 	ali_ecs "github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/lic17/ali-cloud-tools/pkg/client"
@@ -12,34 +13,44 @@ func main() {
 	client := client.NewClient("cn-beijing")
 	e := ecs.NewEcs(client)
 
-	setTags(e)
+	setDisksTags(e)
 }
 
-func setTags(e *ecs.Ecs) {
+func setDisksTags(e *ecs.Ecs) {
+
+	var wg sync.WaitGroup
 
 	disks := e.GetAllUseDisk()
 	for _, d := range disks {
-		instanceId := d.InstanceId
-		diskId := d.DiskId
-		fmt.Println("instance id:", instanceId)
-		fmt.Println("disk id:", diskId)
+		wg.Add(1)
 
-		tags := e.GetEcsTags(instanceId)
-		var addTags []ali_ecs.AddTagsTag
+		go func(d ali_ecs.Disk) {
 
-		for _, t := range tags.Tag {
+			defer wg.Done()
 
-			var tag ali_ecs.AddTagsTag
+			instanceId := d.InstanceId
+			diskId := d.DiskId
 
-			tag.Value = t.TagValue
-			tag.Key = t.TagKey
+			tags := e.GetEcsTags(instanceId)
+			var addTags []ali_ecs.AddTagsTag
 
-			addTags = append(addTags, tag)
-		}
+			for _, t := range tags.Tag {
 
-		if len(addTags) > 0 {
-			e.SetDiskTags(diskId, addTags)
-		}
+				var tag ali_ecs.AddTagsTag
+
+				tag.Value = t.TagValue
+				tag.Key = t.TagKey
+
+				addTags = append(addTags, tag)
+			}
+
+			fmt.Println("instance id: ", instanceId, "disk id: ", diskId, "get tags: ", d.Tags, "add tags: ", addTags)
+			if len(addTags) > 0 {
+				e.SetDiskTags(diskId, addTags)
+			}
+		}(d)
 	}
+
+	wg.Wait()
 
 }
