@@ -5,10 +5,12 @@ import (
 	"os"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 )
 
 type Client struct {
 	Ecs *ecs.Client
+	Vpc *vpc.Client
 }
 
 func NewClient(regionId string) *Client {
@@ -20,6 +22,11 @@ func NewClient(regionId string) *Client {
 	var err error
 
 	client.Ecs, err = ecs.NewClientWithAccessKey(regionId, keyId, keySecret)
+	if err != nil {
+		fmt.Print(err.Error())
+	}
+
+	client.Vpc, err = vpc.NewClientWithAccessKey(regionId, keyId, keySecret)
 	if err != nil {
 		fmt.Print(err.Error())
 	}

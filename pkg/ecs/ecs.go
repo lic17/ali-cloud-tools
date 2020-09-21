@@ -1,9 +1,10 @@
 package ecs
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
-	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/lic17/ali-cloud-tools/pkg/client"
 )
@@ -20,67 +21,56 @@ func NewEcs(client *client.Client) *Ecs {
 	return e
 }
 
-func (e *Ecs) GetOnePageUseDisk(nextToken string) (*ecs.DescribeDisksResponse, error) {
-	request := ecs.CreateDescribeDisksRequest()
-	request.Scheme = "https"
+func (e *Ecs) GetEcsTags(id string) *ecs.TagsInDescribeTags {
+	var err error
+	var ecsTags *ecs.TagsInDescribeTags
 
-	request.Status = "In_use"
-	request.NextToken = nextToken
-	request.MaxResults = requests.NewInteger(100)
+	eId := id
+	idSplit := strings.Split(id, "-")
 
-	disks, err := e.client.DescribeDisks(request)
-	if err != nil {
-		fmt.Print(err.Error())
-	}
-	return disks, err
-}
-
-func (e *Ecs) GetAllUseDisk() []ecs.Disk {
-	var disks []ecs.Disk
-	nextToken := ""
-	for {
-		diskRep, err := e.GetOnePageUseDisk(nextToken)
+	if idSplit[0] == "eni" {
+		//eId = id
+		eId, err = e.GetEcsIdByEni(id)
 		if err != nil {
 			fmt.Print(err.Error())
-			break
+			return ecsTags
 		}
-		disks = append(disks, diskRep.Disks.Disk...)
-		if diskRep.NextToken != "" {
-			nextToken = diskRep.NextToken
-			continue
-		}
-		break
 	}
 
-	return disks
-}
-
-func (e *Ecs) GetEcsTags(id string) *ecs.TagsInDescribeTags {
 	request := ecs.CreateDescribeTagsRequest()
 	request.Scheme = "https"
 
 	request.ResourceType = "instance"
-	request.ResourceId = id
+	request.ResourceId = eId
 
 	tags, err := e.client.DescribeTags(request)
 	if err != nil {
 		fmt.Print(err.Error())
+	} else {
+		ecsTags = &tags.Tags
 	}
-	return &tags.Tags
+	return ecsTags
 }
 
-func (e *Ecs) SetDiskTags(id string, tags []ecs.AddTagsTag) error {
-	request := ecs.CreateAddTagsRequest()
+func (e *Ecs) GetEcsIdByEni(eniId string) (string, error) {
+
+	id := ""
+
+	request := ecs.CreateDescribeNetworkInterfacesRequest()
 	request.Scheme = "https"
 
-	request.ResourceType = "disk"
-	request.ResourceId = id
-	request.Tag = &tags
+	request.NetworkInterfaceId = &[]string{eniId}
 
-	response, err := e.client.AddTags(request)
+	eni, err := e.client.DescribeNetworkInterfaces(request)
 	if err != nil {
 		fmt.Print(err.Error())
+		return id, err
 	}
-	fmt.Printf("response is %#v\n", response)
-	return err
+	if len(eni.NetworkInterfaceSets.NetworkInterfaceSet) <= 0 {
+		err = errors.New("can't find instance id by network instance!")
+	} else {
+		id = eni.NetworkInterfaceSets.NetworkInterfaceSet[0].InstanceId
+	}
+
+	return id, err
 }
