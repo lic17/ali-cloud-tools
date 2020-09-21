@@ -1,4 +1,4 @@
-package main
+package tools
 
 import (
 	"fmt"
@@ -9,16 +9,11 @@ import (
 	"github.com/lic17/ali-cloud-tools/pkg/ecs"
 )
 
-func main() {
-	client := client.NewClient("cn-beijing")
-	e := ecs.NewEcs(client)
-
-	setDisksTags(e)
-}
-
-func setDisksTags(e *ecs.Ecs) {
+func SetDisksTags(client *client.Client) {
 
 	var wg sync.WaitGroup
+
+	e := ecs.NewEcs(client)
 
 	disks := e.GetAllUseDisk()
 	for _, d := range disks {
@@ -44,7 +39,7 @@ func setDisksTags(e *ecs.Ecs) {
 				addTags = append(addTags, tag)
 			}
 
-			fmt.Println("instance id: ", instanceId, "disk id: ", diskId, "get tags: ", d.Tags, "add tags: ", addTags)
+			fmt.Println("SET DISKS TAGS: instance id: ", instanceId, "disk id: ", diskId, "get tags: ", d.Tags, "add tags: ", addTags)
 			if len(addTags) > 0 {
 				e.SetDiskTags(diskId, addTags)
 			}

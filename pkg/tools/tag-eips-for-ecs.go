@@ -1,4 +1,4 @@
-package main
+package tools
 
 import (
 	"fmt"
@@ -10,13 +10,7 @@ import (
 	"github.com/lic17/ali-cloud-tools/pkg/vpc"
 )
 
-func main() {
-	client := client.NewClient("cn-beijing")
-
-	setEipsTags(client)
-}
-
-func setEipsTags(client *client.Client) {
+func SetEipsTags(client *client.Client) {
 
 	var wg sync.WaitGroup
 
@@ -49,7 +43,7 @@ func setEipsTags(client *client.Client) {
 				addTags = append(addTags, tag)
 			}
 
-			fmt.Println("instance id: ", instanceId, "eip id: ", eipId, "get tags: ", eip.Tags, "add tags: ", addTags)
+			fmt.Println("SET EIPS TAGS: instance id: ", instanceId, "eip id: ", eipId, "get tags: ", eip.Tags, "add tags: ", addTags)
 
 			if len(addTags) > 0 {
 				v.SetEIPTags(eipId, addTags)
